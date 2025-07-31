@@ -2,7 +2,6 @@
 
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
-import { AuthDebug } from '@/components/auth-debug';
 
 export default function AuthDebugPage() {
   const { data: session, status } = useSession();
@@ -25,8 +24,6 @@ export default function AuthDebugPage() {
       
       <div className="grid gap-6">
         {/* Interactive Debug Panel */}
-        <AuthDebug />
-
         {/* Session Status */}
         <div className="bg-white p-4 rounded-lg border">
           <h2 className="text-lg font-semibold mb-3">Session Status</h2>

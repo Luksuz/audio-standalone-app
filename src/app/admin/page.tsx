@@ -108,7 +108,6 @@ export default function AdminPage() {
   const [loading, setLoading] = useState<boolean>(false)
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [filterProvider, setFilterProvider] = useState<string>('')
-  const [filterLanguage, setFilterLanguage] = useState<string>('')
   const [showInactive, setShowInactive] = useState<boolean>(false)
   const [editingItem, setEditingItem] = useState<any>(null)
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false)
@@ -331,14 +330,14 @@ export default function AdminPage() {
   const filteredVoices = voices.filter(voice => {
     const matchesSearch = voice.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          voice.voice_id.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesProvider = !filterProvider || voice.provider === filterProvider
+    const matchesProvider = !filterProvider || voice.provider.toLowerCase() === filterProvider.toLowerCase()
     const matchesActive = showInactive || true // Assuming all voices are active for now
     
     return matchesSearch && matchesProvider && matchesActive
   })
 
-  // Get unique languages
-  const languages = [...new Set(voices.map(v => v.voice_id.split('_')[0]).filter(Boolean))]
+  // Get unique providers from voices
+  const availableProviders = [...new Set(voices.map(v => v.provider).filter(Boolean))]
 
   const handleSyncVoices = async (providerId: string) => {
     try {
@@ -536,32 +535,10 @@ export default function AdminPage() {
                     className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   >
                     <option value="">All Providers</option>
-                    {providers.map(provider => (
-                      <option key={provider.id} value={provider.id}>{provider.display_name}</option>
+                    {availableProviders.map(provider => (
+                      <option key={provider} value={provider}>{provider.charAt(0).toUpperCase() + provider.slice(1)}</option>
                     ))}
                   </select>
-
-                  <select
-                    value={filterLanguage}
-                    onChange={(e) => setFilterLanguage(e.target.value)}
-                    className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  >
-                    <option value="">All Languages</option>
-                    {languages.map(lang => (
-                      <option key={lang} value={lang}>{lang.toUpperCase()}</option>
-                    ))}
-                  </select>
-
-                  <button
-                    onClick={() => setShowInactive(!showInactive)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                      showInactive ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {showInactive ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                    Show Inactive
-                  </button>
-
                   <button
                     onClick={() => setShowCreateModal(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
@@ -623,14 +600,9 @@ export default function AdminPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-xs">
-                          <Globe className="h-3 w-3 text-gray-400" />
-                          <span className="text-gray-600">{voice.voice_id.split('_')[0]?.toUpperCase() || 'Unknown'}</span>
-                        </div>
-                        
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-gray-500">
-                            {providers.find(p => p.id === voice.provider)?.display_name}
+                            {voice.provider.charAt(0).toUpperCase() + voice.provider.slice(1)}
                           </span>
                         </div>
                       </div>

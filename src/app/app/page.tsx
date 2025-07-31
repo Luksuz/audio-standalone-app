@@ -58,6 +58,19 @@ const TTS_PROVIDERS: Record<string, TTSProvider> = {
       { id: "s1", name: "S1" }
     ],
     fetchVoicesUrl: "/api/list-fishaudio-voices"
+  },
+  minimax: {
+    name: "MiniMax",
+    chunkSize: 2500,
+    voices: [
+      // Will be loaded dynamically
+      { id: "loading", name: "Loading voices..." }
+    ],
+    models: [
+      { id: "speech-02", name: "Speech-02" },
+      { id: "speech-02-hd", name: "Speech-02 HD" }
+    ],
+    fetchVoicesUrl: "/api/list-minimax-voices"
   }
 }
 
@@ -325,6 +338,8 @@ export default function AudioGenerator() {
     
     if (provider === 'fishaudio') {
       setSelectedModel('speech-1.5')
+    } else if (provider === 'minimax') {
+      setSelectedModel('speech-02-hd')
     }
     
     // Rechunk text if it exists
@@ -387,6 +402,9 @@ export default function AudioGenerator() {
         } else if (selectedProvider === 'fishaudio') {
           requestBody.fishAudioVoiceId = selectedVoice;
           requestBody.fishAudioModel = selectedModel;
+        } else if (selectedProvider === 'minimax') {
+          requestBody.minimaxVoiceId = selectedVoice;
+          requestBody.minimaxModel = selectedModel;
         }
 
         const response = await fetch('/api/generate-audio-comprehensive', {
@@ -1163,7 +1181,7 @@ export default function AudioGenerator() {
                 onChange={(e) => handleTextChange(e.target.value)}
                 placeholder="Paste your script here or upload a DOCX file above... Text will be automatically chunked based on the selected provider's limits."
                 className="w-full h-40 p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none text-gray-700 placeholder-gray-400"
-                maxLength={50000}
+                maxLength={200000}
               />
               
               <div className="flex items-center justify-between mt-3 text-sm text-gray-500">
@@ -1177,7 +1195,7 @@ export default function AudioGenerator() {
                     </span>
                   )}
                 </div>
-                <span>{text.length}/50,000</span>
+                <span>{text.length}/200,000</span>
               </div>
             </div>
 
@@ -1258,8 +1276,8 @@ export default function AudioGenerator() {
                   </select>
                 </div>
 
-                {/* Model Selection (for Fish Audio) */}
-                {selectedProvider === 'fishaudio' && getCurrentProvider()?.models && (
+                {/* Model Selection (for Fish Audio and MiniMax) */}
+                {(selectedProvider === 'fishaudio' || selectedProvider === 'minimax') && getCurrentProvider()?.models && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Model

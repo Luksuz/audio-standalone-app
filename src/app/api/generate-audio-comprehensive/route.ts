@@ -7,9 +7,12 @@ const elevenlabs = elevenLabsApiKey ? new ElevenLabsClient({ apiKey: elevenLabsA
 const FISH_AUDIO_API_KEY = process.env.FISH_AUDIO_API_KEY;
 const FISH_AUDIO_MODEL_DEFAULT = "speech-1.5";
 
+const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY;
+const MINIMAX_GROUP_ID = process.env.MINIMAX_GROUP_ID;
+
 export async function POST(request: Request) {
   const requestBody = await request.json();
-  const { text, provider, voice, model, elevenLabsVoiceId, fishAudioVoiceId, fishAudioModel, chunkIndex = 0, userId = "unknown_user" } = requestBody;
+  const { text, provider, voice, model, elevenLabsVoiceId, fishAudioVoiceId, fishAudioModel, minimaxVoiceId, minimaxModel, chunkIndex = 0, userId = "unknown_user" } = requestBody;
 
   console.log("📥 Received single chunk audio generation request");
   console.log(`🔍 Request details: provider=${provider}, voice=${voice}, chunkIndex=${chunkIndex}, text length=${text?.length || 0}`);
@@ -33,12 +36,20 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Fish Audio API key not configured" }, { status: 500 });
       }
       break;
+    case "minimax":
+      if (!minimaxVoiceId) {
+        return NextResponse.json({ error: "Missing required field 'minimaxVoiceId' for MiniMax" }, { status: 400 });
+      }
+      if (!MINIMAX_API_KEY || !MINIMAX_GROUP_ID) {
+        return NextResponse.json({ error: "MiniMax API key or Group ID not configured" }, { status: 500 });
+      }
+      break;
     default:
       return NextResponse.json({ error: `Unsupported provider: ${provider}` }, { status: 400 });
   }
 
   try {
-    console.log(`🔊 [Chunk ${chunkIndex}] Generating for provider: ${provider}, length: ${text.length}`);
+    console.log(`🔊 [Chunk ${chunkIndex}] Generating for provider: ${provider}`);
     
     let audioBuffer: Buffer;
     const filename = `${provider}-${voice?.replace(/[^a-zA-Z0-9]/g, '_') || 'unknown'}-chunk${chunkIndex}-${Date.now()}.mp3`;
@@ -107,6 +118,39 @@ export async function POST(request: Request) {
         // Fish Audio returns the audio directly as a buffer
         const fishAudioArrayBuffer = await fishResponse.arrayBuffer();
         audioBuffer = Buffer.from(fishAudioArrayBuffer);
+        break;
+
+      case "minimax":
+        const minimaxTTSModel = minimaxModel || "speech-02-hd";
+        console.log(`🤖 [Chunk ${chunkIndex}] MiniMax: voice=${minimaxVoiceId}, model=${minimaxTTSModel}`);
+        const minimaxResponse = await fetch(`https://api.minimaxi.chat/v1/t2a_v2?GroupId=${MINIMAX_GROUP_ID}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MINIMAX_API_KEY}` },
+          body: JSON.stringify({
+            model: minimaxTTSModel, 
+            text: text, 
+            stream: false, 
+            subtitle_enable: false,
+            voice_setting: { voice_id: minimaxVoiceId, speed: 1, vol: 1, pitch: 0 },
+            audio_setting: { sample_rate: 32000, bitrate: 128000, format: "mp3", channel: 1 }
+          })
+        });
+        
+        if (!minimaxResponse.ok) {
+          let errorBody = '';
+          try { errorBody = await minimaxResponse.text(); } catch (e) { /* ignore */ }
+          throw new Error(`MiniMax API error [Chunk ${chunkIndex}]: ${minimaxResponse.status} ${minimaxResponse.statusText}. Body: ${errorBody}`);
+        }
+        
+        const minimaxData = await minimaxResponse.json();
+        if (!minimaxData.data?.audio) throw new Error(`No audio data from MiniMax [Chunk ${chunkIndex}]. Response: ${JSON.stringify(minimaxData)}`);
+        
+        const hexString = minimaxData.data.audio;
+        const bytes = new Uint8Array(hexString.length / 2);
+        for (let i = 0; i < hexString.length; i += 2) {
+          bytes[i / 2] = parseInt(hexString.substring(i, i + 2), 16);
+        }
+        audioBuffer = Buffer.from(bytes);
         break;
 
       default:

@@ -39,17 +39,28 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (
-    !user &&
-    (request.nextUrl.pathname === "/" ||
-     request.nextUrl.pathname.startsWith("/app") ||
-     request.nextUrl.pathname.startsWith("/admin")) &&
-    !request.nextUrl.pathname.startsWith("/auth") &&
-    !request.nextUrl.pathname.startsWith("/api")
-  ) {
+  // Check if user is trying to access protected routes
+  const isProtectedRoute = 
+    request.nextUrl.pathname === "/" ||
+    request.nextUrl.pathname.startsWith("/app") ||
+    request.nextUrl.pathname.startsWith("/admin")
+  
+  const isAuthRoute = request.nextUrl.pathname.startsWith("/auth")
+  const isApiRoute = request.nextUrl.pathname.startsWith("/api")
+
+  if (!user && isProtectedRoute && !isAuthRoute && !isApiRoute) {
     // no user, potentially respond by redirecting the user to the login page
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
+    // Add the original URL as a query parameter for redirecting back after login
+    url.searchParams.set('redirectTo', request.nextUrl.pathname);
+    return NextResponse.redirect(url);
+  }
+
+  // If user is authenticated and trying to access auth pages, redirect to main app
+  if (user && isAuthRoute && request.nextUrl.pathname !== "/auth/logout") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
     return NextResponse.redirect(url);
   }
 

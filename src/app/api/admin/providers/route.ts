@@ -26,6 +26,17 @@ async function getProvidersFromDB() {
       config: { fetchVoicesUrl: "/api/list-fishaudio-voices" },
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
+    },
+    {
+      id: "minimax-provider-id",
+      name: "minimax",
+      display_name: "MiniMax",
+      api_endpoint: "https://api.minimaxi.chat/v1",
+      chunk_size: 2500,
+      is_active: true,
+      config: { fetchVoicesUrl: "/api/list-minimax-voices" },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     }
   ]
 }

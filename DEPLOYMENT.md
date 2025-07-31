@@ -16,6 +16,8 @@ NEXT_PUBLIC_BASE_URL=https://your-actual-domain.com
 
 # Your existing API keys
 ELEVENLABS_API_KEY=your_elevenlabs_api_key
+MINIMAX_GROUP_ID=your_minimax_group_id
+MINIMAX_API_KEY=your_minimax_api_key
 ```
 
 ### 2. Platform-Specific Instructions

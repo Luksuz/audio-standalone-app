@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { AuthGuard } from '../../components/auth-guard'
+import { AdminGuard } from '../../components/admin-guard'
 import { 
   Users, 
   Database, 
@@ -50,6 +50,15 @@ interface Voice {
   created_at: string
 }
 
+interface User {
+  id: string
+  user_id: string
+  email: string
+  full_name: string
+  is_admin: boolean
+  created_at: string
+}
+
 interface Model {
   id: string
   provider_id: string
@@ -66,9 +75,10 @@ interface Model {
 
 export default function AdminPage() {
   // State management
-  const [activeTab, setActiveTab] = useState<'providers' | 'voices' | 'models' | 'analytics'>('voices')
+  const [activeTab, setActiveTab] = useState<'providers' | 'voices' | 'models' | 'users' | 'analytics'>('voices')
   const [providers, setProviders] = useState<Provider[]>([])
   const [voices, setVoices] = useState<Voice[]>([])
+  const [users, setUsers] = useState<User[]>([])
   const [models, setModels] = useState<Model[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [searchTerm, setSearchTerm] = useState<string>('')
@@ -77,7 +87,9 @@ export default function AdminPage() {
   const [showInactive, setShowInactive] = useState<boolean>(false)
   const [editingItem, setEditingItem] = useState<any>(null)
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false)
+  const [showCreateUserModal, setShowCreateUserModal] = useState<boolean>(false)
   const [newVoice, setNewVoice] = useState({ voice_id: '', name: '', provider: '' })
+  const [newUser, setNewUser] = useState({ email: '', password: '', full_name: '', is_admin: false })
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' | 'info' }>({ text: '', type: 'info' })
 
   // Show message helper
@@ -115,6 +127,81 @@ export default function AdminPage() {
     }
   }
 
+  // Handle user creation
+  const handleCreateUser = async () => {
+    try {
+      if (!newUser.email || !newUser.password) {
+        showMessage('Email and password are required', 'error')
+        return
+      }
+
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newUser)
+      })
+
+      if (response.ok) {
+        await fetchUsers()
+        setShowCreateUserModal(false)
+        setNewUser({ email: '', password: '', full_name: '', is_admin: false })
+        showMessage('User created successfully', 'success')
+      } else {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to create user')
+      }
+    } catch (error) {
+      console.error('Error creating user:', error)
+      showMessage(error instanceof Error ? error.message : 'Failed to create user', 'error')
+    }
+  }
+
+  // Handle user deletion
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        await fetchUsers()
+        showMessage('User deleted successfully', 'success')
+      } else {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete user')
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      showMessage(error instanceof Error ? error.message : 'Failed to delete user', 'error')
+    }
+  }
+
+  // Handle admin toggle
+  const handleToggleAdmin = async (userId: string, currentAdminStatus: boolean) => {
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_admin: !currentAdminStatus })
+      })
+
+      if (response.ok) {
+        await fetchUsers()
+        showMessage(`User ${!currentAdminStatus ? 'promoted to' : 'removed from'} admin successfully`, 'success')
+      } else {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to update admin status')
+      }
+    } catch (error) {
+      console.error('Error updating admin status:', error)
+      showMessage(error instanceof Error ? error.message : 'Failed to update admin status', 'error')
+    }
+  }
+
   // Fetch data functions
   const fetchProviders = async () => {
     try {
@@ -145,6 +232,22 @@ export default function AdminPage() {
     }
   }
 
+  const fetchUsers = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/admin/users')
+      if (response.ok) {
+        const data = await response.json()
+        setUsers(data.users || [])
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error)
+      showMessage('Failed to fetch users', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const fetchModels = async () => {
     try {
       // Models API not implemented yet, returning empty array
@@ -159,6 +262,7 @@ export default function AdminPage() {
   useEffect(() => {
     fetchProviders()
     fetchVoices()
+    fetchUsers()
     fetchModels()
   }, [])
 
@@ -225,7 +329,7 @@ export default function AdminPage() {
   }
 
   return (
-    <AuthGuard>
+    <AdminGuard>
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
         <div className="container mx-auto px-6 py-8 max-w-7xl">
           {/* Navigation Bar */}
@@ -237,7 +341,7 @@ export default function AdminPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Database className="h-5 w-5 text-indigo-600" />
-                <span className="font-medium text-gray-700">Voice Management Admin</span>
+                <span className="font-medium text-gray-700">Admin Management Panel</span>
               </div>
               <div className="flex items-center gap-3">
                 <motion.a
@@ -267,11 +371,11 @@ export default function AdminPage() {
             <div className="flex items-center justify-center gap-3 mb-4">
               <Database className="h-8 w-8 text-indigo-600" />
               <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                Voice Management Admin
+                Admin Management Panel
               </h1>
             </div>
             <p className="text-gray-600 text-lg">
-              Manage TTS providers, voices, and models
+              Manage TTS providers, voices, users, and system analytics
             </p>
           </motion.div>
 
@@ -310,6 +414,7 @@ export default function AdminPage() {
               { key: 'voices', label: 'Voices', icon: Mic, count: voices.length },
               { key: 'providers', label: 'Providers', icon: Database, count: providers.length },
               { key: 'models', label: 'Models', icon: Settings, count: models.length },
+              { key: 'users', label: 'Users', icon: Users, count: users.length },
               { key: 'analytics', label: 'Analytics', icon: TrendingUp, count: null }
             ].map((tab) => (
               <button
@@ -444,7 +549,6 @@ export default function AdminPage() {
                           <p className="text-xs text-gray-500 truncate">{voice.voice_id}</p>
                         </div>
                         <div className="flex items-center gap-1">
-                          {/* Removed sample_url as it's not in the new Voice interface */}
                           <button
                             onClick={() => handleToggleVoice(voice.id, true)}
                             className={`p-1 transition-colors ${
@@ -472,16 +576,12 @@ export default function AdminPage() {
                         <div className="flex items-center gap-2 text-xs">
                           <Globe className="h-3 w-3 text-gray-400" />
                           <span className="text-gray-600">{voice.voice_id.split('_')[0]?.toUpperCase() || 'Unknown'}</span>
-                          {/* Removed gender and age as they are not in the new Voice interface */}
                         </div>
-                        
-                        {/* Removed description as it's not in the new Voice interface */}
                         
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-gray-500">
                             {providers.find(p => p.id === voice.provider)?.display_name}
                           </span>
-                          {/* Removed like_count as it's not in the new Voice interface */}
                         </div>
                       </div>
                     </motion.div>
@@ -526,26 +626,105 @@ export default function AdminPage() {
             {/* Models Tab */}
             {activeTab === 'models' && (
               <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {models.map((model) => (
-                    <div key={model.id} className="p-4 border border-gray-200 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-semibold">{model.name}</h3>
-                        <span className={`px-2 py-1 rounded-full text-xs ${
-                          model.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {model.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                      <div className="space-y-1 text-sm text-gray-600">
-                        <div><strong>ID:</strong> {model.model_id}</div>
-                        <div><strong>Provider:</strong> {providers.find(p => p.id === model.provider_id)?.display_name}</div>
-                        {model.pricing && <div><strong>Pricing:</strong> {model.pricing}</div>}
-                        {model.description && <div><strong>Description:</strong> {model.description}</div>}
-                      </div>
-                    </div>
-                  ))}
+                <div className="text-center py-12">
+                  <Settings className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Models Coming Soon</h3>
+                  <p className="text-gray-500">TTS model management will be available here.</p>
                 </div>
+              </div>
+            )}
+
+            {/* Users Tab */}
+            {activeTab === 'users' && (
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900">Users</h2>
+                  <button
+                    onClick={() => setShowCreateUserModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add User
+                  </button>
+                </div>
+
+                {loading ? (
+                  <div className="text-center py-12">
+                    <RefreshCw className="h-12 w-12 text-gray-400 mx-auto mb-4 animate-spin" />
+                    <p className="text-gray-500">Loading users...</p>
+                  </div>
+                ) : users.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No users found</h3>
+                    <p className="text-gray-500">Add new users to manage the application.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            User ID
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Email
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Full Name
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Admin
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Created At
+                          </th>
+                          <th scope="col" className="relative px-6 py-3">
+                            <span className="sr-only">Edit</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {users.map((user) => (
+                          <tr key={user.id}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {user.user_id}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {user.email}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {user.full_name}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <button
+                                onClick={() => handleToggleAdmin(user.user_id, user.is_admin)}
+                                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                                  user.is_admin
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {user.is_admin ? 'Admin' : 'User'}
+                              </button>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {new Date(user.created_at).toLocaleDateString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <button
+                                onClick={() => handleDeleteUser(user.user_id)}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 
@@ -644,8 +823,99 @@ export default function AdminPage() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* User Creation Modal */}
+          <AnimatePresence>
+            {showCreateUserModal && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                onClick={() => setShowCreateUserModal(false)}
+              >
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="bg-white rounded-xl p-6 w-full max-w-md mx-4"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Add New User</h3>
+                    <button
+                      onClick={() => setShowCreateUserModal(false)}
+                      className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                      <input
+                        type="email"
+                        value={newUser.email}
+                        onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                        placeholder="user@example.com"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                      <input
+                        type="password"
+                        value={newUser.password}
+                        onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                        placeholder="Password"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                      <input
+                        type="text"
+                        value={newUser.full_name}
+                        onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
+                        placeholder="e.g., John Doe"
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="isAdmin"
+                        checked={newUser.is_admin}
+                        onChange={(e) => setNewUser({ ...newUser, is_admin: e.target.checked })}
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="isAdmin" className="ml-2 text-sm text-gray-700">
+                        Make Admin
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      onClick={() => setShowCreateUserModal(false)}
+                      className="flex-1 px-4 py-2 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleCreateUser}
+                      className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                      Create User
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
-    </AuthGuard>
+    </AdminGuard>
   )
 } 

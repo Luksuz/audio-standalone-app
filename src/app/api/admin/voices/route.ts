@@ -1,10 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '../../../../../lib/supabase/server'
+import { createClient, createServiceRoleClient } from '../../../../../lib/supabase/server'
 
-// Database functions using Supabase
-async function getVoicesFromDB() {
+// Helper function to check if user is admin
+async function checkAdminAccess() {
   const supabase = await createClient()
-  const { data, error } = await supabase
+  const { data: { user } = {} } = await supabase.auth.getUser()
+  
+  if (!user) {
+    throw new Error('Unauthorized')
+  }
+
+  // Check if user is admin using service role client to bypass RLS
+  const serviceSupabase = createServiceRoleClient()
+  const { data: profile, error } = await serviceSupabase
+    .from('profiles')
+    .select('is_admin')
+    .eq('user_id', user.id)
+    .single()
+
+  if (error || !profile?.is_admin) {
+    throw new Error('Admin access required')
+  }
+
+  return { user, supabase, serviceSupabase }
+}
+
+// Helper function to get voices from database
+async function getVoicesFromDB() {
+  const serviceSupabase = createServiceRoleClient()
+  const { data, error } = await serviceSupabase
     .from('ai_voices')
     .select('*')
     .order('created_at', { ascending: false })
@@ -16,11 +40,16 @@ async function getVoicesFromDB() {
   return data || []
 }
 
+// Helper function to create voice in database
 async function createVoiceInDB(voiceData: any) {
-  const supabase = await createClient()
-  const { data, error } = await supabase
+  const serviceSupabase = createServiceRoleClient()
+  const { data, error } = await serviceSupabase
     .from('ai_voices')
-    .insert([voiceData])
+    .insert([{
+      voice_id: voiceData.voice_id,
+      name: voiceData.name,
+      provider: voiceData.provider
+    }])
     .select()
     .single()
 
@@ -33,26 +62,28 @@ async function createVoiceInDB(voiceData: any) {
 
 export async function GET(request: NextRequest) {
   try {
+    await checkAdminAccess() // Verify admin access
     const voices = await getVoicesFromDB()
     
     return NextResponse.json({
       success: true,
       voices: voices
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching voices:', error)
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch voices' },
-      { status: 500 }
+      { success: false, error: error.message },
+      { status: error.message === 'Unauthorized' ? 401 : error.message === 'Admin access required' ? 403 : 500 }
     )
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    await checkAdminAccess() // Verify admin access
     const voiceData = await request.json()
-    
-    // Validate required fields for the simplified schema
+
+    // Validate required fields
     const required = ['voice_id', 'name', 'provider']
     for (const field of required) {
       if (!voiceData[field]) {
@@ -62,25 +93,25 @@ export async function POST(request: NextRequest) {
         )
       }
     }
-    
-    // Clean data to match our simple schema
+
+    // Clean the data
     const cleanData = {
-      voice_id: voiceData.voice_id,
-      name: voiceData.name,
-      provider: voiceData.provider
+      voice_id: String(voiceData.voice_id).trim(),
+      name: String(voiceData.name).trim(),
+      provider: String(voiceData.provider).trim()
     }
-    
+
     const newVoice = await createVoiceInDB(cleanData)
     
     return NextResponse.json({
       success: true,
       voice: newVoice
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating voice:', error)
     return NextResponse.json(
-      { success: false, error: 'Failed to create voice' },
-      { status: 500 }
+      { success: false, error: error.message },
+      { status: error.message === 'Unauthorized' ? 401 : error.message === 'Admin access required' ? 403 : 500 }
     )
   }
 } 

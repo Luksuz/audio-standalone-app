@@ -11,6 +11,16 @@ The app works locally but fails in production due to filesystem and URL issues.
 Add these to your production environment:
 
 ```bash
+# Environment Variables
+
+Set up the following environment variables in your production environment:
+
+```env
+# Database
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
 # Required for internal API calls
 NEXT_PUBLIC_BASE_URL=https://your-actual-domain.com
 
@@ -18,6 +28,7 @@ NEXT_PUBLIC_BASE_URL=https://your-actual-domain.com
 ELEVENLABS_API_KEY=your_elevenlabs_api_key
 MINIMAX_GROUP_ID=your_minimax_group_id
 MINIMAX_API_KEY=your_minimax_api_key
+FISHAUDIO_API_KEY=your_fishaudio_api_key
 ```
 
 ### 2. Platform-Specific Instructions

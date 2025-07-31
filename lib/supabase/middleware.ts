@@ -39,23 +39,8 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Check if user is trying to access protected routes
-  const isProtectedRoute = 
-    request.nextUrl.pathname === "/" ||
-    request.nextUrl.pathname.startsWith("/app") ||
-    request.nextUrl.pathname.startsWith("/admin")
-  
   const isAuthRoute = request.nextUrl.pathname.startsWith("/auth")
   const isApiRoute = request.nextUrl.pathname.startsWith("/api")
-
-  if (!user && isProtectedRoute && !isAuthRoute && !isApiRoute) {
-    // no user, potentially respond by redirecting the user to the login page
-    const url = request.nextUrl.clone();
-    url.pathname = "/auth/login";
-    // Add the original URL as a query parameter for redirecting back after login
-    url.searchParams.set('redirectTo', request.nextUrl.pathname);
-    return NextResponse.redirect(url);
-  }
 
   // If user is authenticated and trying to access auth pages, redirect to main app
   if (user && isAuthRoute && request.nextUrl.pathname !== "/auth/logout") {
@@ -64,6 +49,9 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Let client-side components handle auth protection for better UX
+  // Only protect API routes at the server level if needed
+  
   // IMPORTANT: You *must* return the supabaseResponse object as it is.
   // If you're creating a new response object with NextResponse.next() make sure to:
   // 1. Pass the request in it, like so:

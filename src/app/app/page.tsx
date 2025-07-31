@@ -6,6 +6,7 @@ import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 import mammoth from 'mammoth'
 import { AuthGuard } from '../../components/auth-guard'
+import { useAdminStatus } from '../../hooks/use-admin-status'
 import { 
   Volume2, 
   Download, 
@@ -125,6 +126,9 @@ export default function AudioGenerator() {
   const [customVoices, setCustomVoices] = useState<Record<string, { id: string; name: string }[]>>({})
   const [voicesLoading, setVoicesLoading] = useState<Record<string, boolean>>({})
   const [voicesError, setVoicesError] = useState<Record<string, string>>({})
+
+  // Admin status check
+  const { isAdmin } = useAdminStatus()
 
   // Get current provider with dynamic voices
   const getCurrentProvider = () => {
@@ -1064,15 +1068,17 @@ export default function AudioGenerator() {
                   <FileText className="h-4 w-4" />
                   Main App
                 </motion.a>
-                <motion.a
-                  href="/admin"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors font-medium"
-                >
-                  <Settings className="h-4 w-4" />
-                  Admin Panel
-                </motion.a>
+                {isAdmin && (
+                  <motion.a
+                    href="/admin"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors font-medium"
+                  >
+                    <Settings className="h-4 w-4" />
+                    Admin Panel
+                  </motion.a>
+                )}
               </div>
             </div>
           </motion.div>

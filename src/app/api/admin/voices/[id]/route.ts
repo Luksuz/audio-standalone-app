@@ -1,19 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '../../../../../../lib/supabase/server'
+import { createClient, createServiceRoleClient } from '../../../../../../lib/supabase/server'
 
-// Database functions using Supabase
-async function updateVoiceInDB(id: string, updateData: any) {
+// Helper function to check if user is admin
+async function checkAdminAccess() {
   const supabase = await createClient()
+  const { data: { user } = {} } = await supabase.auth.getUser()
   
-  // Clean data to match our simple schema
-  const cleanData: any = {}
-  if (updateData.voice_id !== undefined) cleanData.voice_id = updateData.voice_id
-  if (updateData.name !== undefined) cleanData.name = updateData.name
-  if (updateData.provider !== undefined) cleanData.provider = updateData.provider
-  
-  const { data, error } = await supabase
+  if (!user) {
+    throw new Error('Unauthorized')
+  }
+
+  // Check if user is admin using service role client to bypass RLS
+  const serviceSupabase = createServiceRoleClient()
+  const { data: profile, error } = await serviceSupabase
+    .from('profiles')
+    .select('is_admin')
+    .eq('user_id', user.id)
+    .single()
+
+  if (error || !profile?.is_admin) {
+    throw new Error('Admin access required')
+  }
+
+  return { user, supabase, serviceSupabase }
+}
+
+// Helper function to update voice in database
+async function updateVoiceInDB(id: string, voiceData: any) {
+  const serviceSupabase = createServiceRoleClient()
+  const { data, error } = await serviceSupabase
     .from('ai_voices')
-    .update(cleanData)
+    .update(voiceData)
     .eq('id', id)
     .select()
     .single()
@@ -25,9 +42,10 @@ async function updateVoiceInDB(id: string, updateData: any) {
   return data
 }
 
+// Helper function to delete voice from database
 async function deleteVoiceFromDB(id: string) {
-  const supabase = await createClient()
-  const { error } = await supabase
+  const serviceSupabase = createServiceRoleClient()
+  const { error } = await serviceSupabase
     .from('ai_voices')
     .delete()
     .eq('id', id)
@@ -45,19 +63,37 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params
-    const updateData = await request.json()
+    await checkAdminAccess() // Verify admin access
+    const voiceData = await request.json()
+
+    // Clean the data - only allow specific fields
+    const allowedFields = ['voice_id', 'name', 'provider']
+    const cleanData: any = {}
     
-    const updatedVoice = await updateVoiceInDB(id, updateData)
+    for (const field of allowedFields) {
+      if (voiceData[field] !== undefined) {
+        cleanData[field] = String(voiceData[field]).trim()
+      }
+    }
+
+    if (Object.keys(cleanData).length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'No valid fields to update' },
+        { status: 400 }
+      )
+    }
+
+    const updatedVoice = await updateVoiceInDB(id, cleanData)
     
     return NextResponse.json({
       success: true,
       voice: updatedVoice
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating voice:', error)
     return NextResponse.json(
-      { success: false, error: 'Failed to update voice' },
-      { status: 500 }
+      { success: false, error: error.message },
+      { status: error.message === 'Unauthorized' ? 401 : error.message === 'Admin access required' ? 403 : 500 }
     )
   }
 }
@@ -68,6 +104,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
+    await checkAdminAccess() // Verify admin access
     
     await deleteVoiceFromDB(id)
     
@@ -75,11 +112,11 @@ export async function DELETE(
       success: true,
       message: 'Voice deleted successfully'
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error deleting voice:', error)
     return NextResponse.json(
-      { success: false, error: 'Failed to delete voice' },
-      { status: 500 }
+      { success: false, error: error.message },
+      { status: error.message === 'Unauthorized' ? 401 : error.message === 'Admin access required' ? 403 : 500 }
     )
   }
 } 

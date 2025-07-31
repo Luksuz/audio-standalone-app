@@ -1,6 +1,6 @@
-import { ForgotPasswordForm } from "@/components/forgot-password-form";
+import { ForgotPasswordForm } from "../../../components/forgot-password-form";
 
-export default function Page() {
+export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 flex items-center justify-center p-6 md:p-10">
       <div className="w-full max-w-sm">
@@ -11,6 +11,14 @@ export default function Page() {
           <p className="text-gray-600">Enter your email to reset your password</p>
         </div>
         <ForgotPasswordForm />
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-600">
+            Remember your password?{" "}
+            <a href="/auth/login" className="text-purple-600 hover:text-purple-700 font-medium">
+              Sign in here
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );

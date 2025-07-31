@@ -41,10 +41,10 @@ async function deleteVoiceFromDB(id: string) {
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    const { id } = await params
     const updateData = await request.json()
     
     const updatedVoice = await updateVoiceInDB(id, updateData)
@@ -64,10 +64,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    const { id } = await params
     
     await deleteVoiceFromDB(id)
     

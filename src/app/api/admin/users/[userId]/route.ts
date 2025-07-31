@@ -5,9 +5,12 @@ import { deleteUser } from '../../../../../../lib/supabase/admin'
 // DELETE /api/admin/users/[userId] - Delete user
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
+    // Await the params
+    const { userId } = await params
+    
     // Check if user is authenticated and admin
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -28,12 +31,12 @@ export async function DELETE(
     }
     
     // Prevent self-deletion
-    if (user.id === params.userId) {
+    if (user.id === userId) {
       return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 })
     }
     
     // Delete user
-    const result = await deleteUser(params.userId)
+    const result = await deleteUser(userId)
     
     if (result.error) {
       return NextResponse.json({ error: result.error.message }, { status: 500 })

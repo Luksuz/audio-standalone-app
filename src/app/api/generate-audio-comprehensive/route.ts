@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
+import { createClient } from "../../../../lib/supabase/server";
 
 const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
 const elevenlabs = elevenLabsApiKey ? new ElevenLabsClient({ apiKey: elevenLabsApiKey }) : null;
@@ -46,6 +47,34 @@ export async function POST(request: Request) {
       break;
     default:
       return NextResponse.json({ error: `Unsupported provider: ${provider}` }, { status: 400 });
+  }
+
+  // Log job creation for the first chunk (chunkIndex === 0)
+  if (chunkIndex === 0) {
+    try {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        const { error: jobError } = await supabase
+          .from('jobs')
+          .insert({
+            user_id: user.id,
+            provider_used: provider,
+            characters_used: text.length
+          });
+
+        if (jobError) {
+          console.error('Error logging job:', jobError);
+          // Don't fail the request if job logging fails
+        } else {
+          console.log(`📝 Job logged for user ${user.id}: ${provider}, ${text.length} characters`);
+        }
+      }
+    } catch (error) {
+      console.error('Error in job logging:', error);
+      // Don't fail the request if job logging fails
+    }
   }
 
   try {

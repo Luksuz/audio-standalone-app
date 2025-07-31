@@ -26,8 +26,11 @@ import {
   Star,
   TrendingUp,
   FileText,
-  Sparkles
+  Sparkles,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
+import React from 'react'
 
 // Types
 interface Provider {
@@ -54,9 +57,27 @@ interface User {
   id: string
   user_id: string
   email: string
-  full_name: string
   is_admin: boolean
   created_at: string
+}
+
+interface JobStats {
+  total_jobs: number
+  total_characters: number
+  providers_used: string[]
+  last_job_at: string | null
+  recent_jobs: Array<{
+    provider: string
+    characters: number
+    created_at: string
+  }>
+}
+
+interface TimeSeriesData {
+  date: string
+  jobs: number
+  characters: number
+  users: string[]
 }
 
 interface Model {
@@ -80,6 +101,10 @@ export default function AdminPage() {
   const [voices, setVoices] = useState<Voice[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [models, setModels] = useState<Model[]>([])
+  const [jobStats, setJobStats] = useState<Record<string, JobStats>>({})
+  const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesData[]>([])
+  const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month'>('week')
+  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState<boolean>(false)
   const [searchTerm, setSearchTerm] = useState<string>('')
   const [filterProvider, setFilterProvider] = useState<string>('')
@@ -89,13 +114,26 @@ export default function AdminPage() {
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false)
   const [showCreateUserModal, setShowCreateUserModal] = useState<boolean>(false)
   const [newVoice, setNewVoice] = useState({ voice_id: '', name: '', provider: '' })
-  const [newUser, setNewUser] = useState({ email: '', password: '', full_name: '', is_admin: false })
+  const [newUser, setNewUser] = useState({ email: '', password: '', is_admin: false })
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' | 'info' }>({ text: '', type: 'info' })
 
   // Show message helper
   const showMessage = (text: string, type: 'success' | 'error' | 'info' = 'info') => {
     setMessage({ text, type })
     setTimeout(() => setMessage({ text: '', type: 'info' }), 5000)
+  }
+
+  // Toggle user jobs expansion
+  const toggleUserExpansion = (userId: string) => {
+    setExpandedUsers(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(userId)) {
+        newSet.delete(userId)
+      } else {
+        newSet.add(userId)
+      }
+      return newSet
+    })
   }
 
   // Handle voice creation
@@ -144,7 +182,7 @@ export default function AdminPage() {
       if (response.ok) {
         await fetchUsers()
         setShowCreateUserModal(false)
-        setNewUser({ email: '', password: '', full_name: '', is_admin: false })
+        setNewUser({ email: '', password: '', is_admin: false })
         showMessage('User created successfully', 'success')
       } else {
         const data = await response.json()
@@ -239,6 +277,8 @@ export default function AdminPage() {
       if (response.ok) {
         const data = await response.json()
         setUsers(data.users || [])
+        // Also refresh job stats when fetching users
+        await fetchJobStats()
       }
     } catch (error) {
       console.error('Error fetching users:', error)
@@ -258,12 +298,33 @@ export default function AdminPage() {
     }
   }
 
+  const fetchJobStats = async (period: 'day' | 'week' | 'month' = selectedPeriod) => {
+    try {
+      const response = await fetch(`/api/admin/jobs?period=${period}`)
+      if (response.ok) {
+        const data = await response.json()
+        setJobStats(data.job_stats || {})
+        setTimeSeriesData(data.time_series || [])
+      }
+    } catch (error) {
+      console.error('Error fetching job stats:', error)
+      showMessage('Failed to fetch job statistics', 'error')
+    }
+  }
+
+  // Handle period change
+  const handlePeriodChange = async (period: 'day' | 'week' | 'month') => {
+    setSelectedPeriod(period)
+    await fetchJobStats(period)
+  }
+
   // Load data on component mount
   useEffect(() => {
     fetchProviders()
     fetchVoices()
     fetchUsers()
     fetchModels()
+    fetchJobStats()
   }, [])
 
   // Filter voices based on search and filters
@@ -415,7 +476,12 @@ export default function AdminPage() {
               { key: 'providers', label: 'Providers', icon: Database, count: providers.length },
               { key: 'models', label: 'Models', icon: Settings, count: models.length },
               { key: 'users', label: 'Users', icon: Users, count: users.length },
-              { key: 'analytics', label: 'Analytics', icon: TrendingUp, count: null }
+              { 
+                key: 'analytics', 
+                label: 'Analytics', 
+                icon: TrendingUp, 
+                count: Object.values(jobStats).reduce((total, stats) => total + stats.total_jobs, 0)
+              }
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -428,7 +494,7 @@ export default function AdminPage() {
               >
                 <tab.icon className="h-4 w-4" />
                 {tab.label}
-                {tab.count !== null && (
+                {tab.count !== null && tab.count > 0 && (
                   <span className={`px-2 py-1 rounded-full text-xs ${
                     activeTab === tab.key ? 'bg-indigo-700' : 'bg-gray-200'
                   }`}>
@@ -652,10 +718,16 @@ export default function AdminPage() {
                             Email
                           </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Full Name
+                            Admin
                           </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Admin
+                            Jobs
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Characters
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Last Activity
                           </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Created At
@@ -666,39 +738,115 @@ export default function AdminPage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {users.map((user) => (
-                          <tr key={user.id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {user.email}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {user.full_name || 'N/A'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                              <button
-                                onClick={() => handleToggleAdmin(user.user_id, user.is_admin)}
-                                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                                  user.is_admin
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-red-100 text-red-800'
-                                }`}
-                              >
-                                {user.is_admin ? 'Admin' : 'User'}
-                              </button>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {new Date(user.created_at).toLocaleDateString()}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <button
-                                onClick={() => handleDeleteUser(user.user_id)}
-                                className="text-red-600 hover:text-red-900"
-                              >
-                                Delete
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                        {users.map((user) => {
+                          const userJobStats = jobStats[user.user_id] || {
+                            total_jobs: 0,
+                            total_characters: 0,
+                            providers_used: [],
+                            last_job_at: null,
+                            recent_jobs: []
+                          }
+                          const isExpanded = expandedUsers.has(user.user_id)
+                          
+                          return (
+                            <React.Fragment key={user.id}>
+                              <tr>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                  <div className="flex items-center gap-2">
+                                    {userJobStats.total_jobs > 0 && (
+                                      <button
+                                        onClick={() => toggleUserExpansion(user.user_id)}
+                                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                                      >
+                                        {isExpanded ? (
+                                          <ChevronUp className="h-4 w-4" />
+                                        ) : (
+                                          <ChevronDown className="h-4 w-4" />
+                                        )}
+                                      </button>
+                                    )}
+                                    {user.email}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                                  <button
+                                    onClick={() => handleToggleAdmin(user.user_id, user.is_admin)}
+                                    className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                                      user.is_admin
+                                        ? 'bg-green-100 text-green-800'
+                                        : 'bg-red-100 text-red-800'
+                                    }`}
+                                  >
+                                    {user.is_admin ? 'Admin' : 'User'}
+                                  </button>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{userJobStats.total_jobs}</span>
+                                    {userJobStats.providers_used.length > 0 && (
+                                      <span className="text-xs text-gray-500">
+                                        {userJobStats.providers_used.join(', ')}
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  {userJobStats.total_characters.toLocaleString()}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {userJobStats.last_job_at 
+                                    ? new Date(userJobStats.last_job_at).toLocaleDateString()
+                                    : 'Never'
+                                  }
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {new Date(user.created_at).toLocaleDateString()}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                  <button
+                                    onClick={() => handleDeleteUser(user.user_id)}
+                                    className="text-red-600 hover:text-red-900"
+                                  >
+                                    Delete
+                                  </button>
+                                </td>
+                              </tr>
+                              
+                              {/* Expanded Job Details */}
+                              {isExpanded && userJobStats.recent_jobs.length > 0 && (
+                                <tr>
+                                  <td colSpan={7} className="px-6 py-4 bg-gray-50">
+                                    <div className="space-y-2">
+                                      <h4 className="text-sm font-medium text-gray-900 mb-3">Recent Jobs</h4>
+                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        {userJobStats.recent_jobs.map((job, jobIndex) => (
+                                          <div key={jobIndex} className="bg-white p-3 rounded-lg border border-gray-200">
+                                            <div className="flex items-center justify-between mb-2">
+                                              <span className="text-sm font-medium text-gray-900 capitalize">
+                                                {job.provider}
+                                              </span>
+                                              <span className="text-xs text-gray-500">
+                                                {new Date(job.created_at).toLocaleDateString()}
+                                              </span>
+                                            </div>
+                                            <div className="text-xs text-gray-600">
+                                              <div className="flex items-center gap-2">
+                                                <span>{job.characters.toLocaleString()} characters</span>
+                                              </div>
+                                              <div className="text-xs text-gray-400 mt-1">
+                                                {new Date(job.created_at).toLocaleTimeString()}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -709,10 +857,257 @@ export default function AdminPage() {
             {/* Analytics Tab */}
             {activeTab === 'analytics' && (
               <div className="p-6">
-                <div className="text-center py-12">
-                  <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Analytics Coming Soon</h3>
-                  <p className="text-gray-500">Voice usage analytics and statistics will be available here.</p>
+                {/* Period Filter */}
+                <div className="mb-6 flex justify-center">
+                  <div className="flex bg-gray-100 rounded-lg p-1">
+                    {(['day', 'week', 'month'] as const).map((period) => (
+                      <button
+                        key={period}
+                        onClick={() => handlePeriodChange(period)}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                          selectedPeriod === period
+                            ? 'bg-white text-indigo-600 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        {period === 'day' ? 'Last 24 Hours' : 
+                         period === 'week' ? 'Last 7 Days' : 
+                         'Last 30 Days'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Time Series Charts */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                  {/* Jobs Chart */}
+                  <div className="bg-white p-6 rounded-lg border border-gray-200">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-lg font-semibold text-gray-900">Jobs Over Time</h3>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                        <span className="text-sm text-gray-600">Number of Jobs</span>
+                      </div>
+                    </div>
+                    
+                    {timeSeriesData.length > 0 ? (
+                      <div className="relative">
+                        {/* Chart Container */}
+                        <div className="flex items-end justify-between h-48 gap-2 border-l-2 border-b-2 border-gray-200 pl-4 pb-4">
+                          {timeSeriesData.map((dataPoint, index) => {
+                            const maxJobs = Math.max(...timeSeriesData.map(d => d.jobs), 1)
+                            const jobHeight = (dataPoint.jobs / maxJobs) * 180
+                            
+                            return (
+                              <div key={index} className="flex flex-col items-center flex-1 min-w-0 group">
+                                {/* Bar */}
+                                <div className="flex items-end w-full justify-center mb-2 relative">
+                                  <div
+                                    className="bg-blue-500 w-4 rounded-t transition-all duration-300 hover:bg-blue-600 relative"
+                                    style={{ height: `${jobHeight}px` }}
+                                  />
+                                  
+                                  {/* Tooltip */}
+                                  <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                                    {dataPoint.jobs} jobs • {dataPoint.users.length} users
+                                  </div>
+                                </div>
+                                
+                                {/* Date Label */}
+                                <div className="text-xs text-gray-500 text-center truncate w-full">
+                                  {dataPoint.date}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        
+                        {/* Y-axis labels */}
+                        <div className="absolute left-0 top-0 h-48 flex flex-col justify-between text-xs text-gray-500">
+                          <span>{Math.max(...timeSeriesData.map(d => d.jobs))}</span>
+                          <span>{Math.round(Math.max(...timeSeriesData.map(d => d.jobs)) / 2)}</span>
+                          <span>0</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-48 text-gray-500">
+                        <div className="text-center">
+                          <FileText className="h-8 w-8 mx-auto mb-2" />
+                          <p className="text-sm">No job data available</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Characters Chart */}
+                  <div className="bg-white p-6 rounded-lg border border-gray-200">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-lg font-semibold text-gray-900">Characters Over Time</h3>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-green-500 rounded"></div>
+                        <span className="text-sm text-gray-600">Character Count</span>
+                      </div>
+                    </div>
+                    
+                    {timeSeriesData.length > 0 ? (
+                      <div className="relative">
+                        {/* Chart Container */}
+                        <div className="flex items-end justify-between h-48 gap-2 border-l-2 border-b-2 border-gray-200 pl-4 pb-4">
+                          {timeSeriesData.map((dataPoint, index) => {
+                            const maxChars = Math.max(...timeSeriesData.map(d => d.characters), 1)
+                            const charHeight = (dataPoint.characters / maxChars) * 180
+                            
+                            return (
+                              <div key={index} className="flex flex-col items-center flex-1 min-w-0 group">
+                                {/* Bar */}
+                                <div className="flex items-end w-full justify-center mb-2 relative">
+                                  <div
+                                    className="bg-green-500 w-4 rounded-t transition-all duration-300 hover:bg-green-600 relative"
+                                    style={{ height: `${charHeight}px` }}
+                                  />
+                                  
+                                  {/* Tooltip */}
+                                  <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                                    {dataPoint.characters.toLocaleString()} characters
+                                  </div>
+                                </div>
+                                
+                                {/* Date Label */}
+                                <div className="text-xs text-gray-500 text-center truncate w-full">
+                                  {dataPoint.date}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        
+                        {/* Y-axis labels */}
+                        <div className="absolute left-0 top-0 h-48 flex flex-col justify-between text-xs text-gray-500">
+                          <span>{Math.max(...timeSeriesData.map(d => d.characters)).toLocaleString()}</span>
+                          <span>{Math.round(Math.max(...timeSeriesData.map(d => d.characters)) / 2).toLocaleString()}</span>
+                          <span>0</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-48 text-gray-500">
+                        <div className="text-center">
+                          <Volume2 className="h-8 w-8 mx-auto mb-2" />
+                          <p className="text-sm">No character data available</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                  {/* Total Jobs */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-blue-600">Total Jobs</p>
+                        <p className="text-2xl font-bold text-blue-900">
+                          {Object.values(jobStats).reduce((total, stats) => total + stats.total_jobs, 0)}
+                        </p>
+                      </div>
+                      <FileText className="h-8 w-8 text-blue-600" />
+                    </div>
+                  </div>
+
+                  {/* Total Characters */}
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-lg border border-green-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-green-600">Total Characters</p>
+                        <p className="text-2xl font-bold text-green-900">
+                          {Object.values(jobStats).reduce((total, stats) => total + stats.total_characters, 0).toLocaleString()}
+                        </p>
+                      </div>
+                      <Volume2 className="h-8 w-8 text-green-600" />
+                    </div>
+                  </div>
+
+                  {/* Active Users */}
+                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-6 rounded-lg border border-purple-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-purple-600">Active Users</p>
+                        <p className="text-2xl font-bold text-purple-900">
+                          {Object.keys(jobStats).length}
+                        </p>
+                      </div>
+                      <Users className="h-8 w-8 text-purple-600" />
+                    </div>
+                  </div>
+
+                  {/* Providers Used */}
+                  <div className="bg-gradient-to-r from-orange-50 to-red-50 p-6 rounded-lg border border-orange-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-orange-600">Providers Used</p>
+                        <p className="text-2xl font-bold text-orange-900">
+                          {new Set(Object.values(jobStats).flatMap(stats => stats.providers_used)).size}
+                        </p>
+                      </div>
+                      <Database className="h-8 w-8 text-orange-600" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Provider Usage Breakdown */}
+                <div className="bg-white p-6 rounded-lg border border-gray-200 mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Provider Usage</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {Array.from(new Set(Object.values(jobStats).flatMap(stats => stats.providers_used))).map(provider => {
+                      const providerJobs = Object.values(jobStats).reduce((total, stats) => {
+                        return total + stats.recent_jobs.filter(job => job.provider === provider).length
+                      }, 0)
+                      const providerChars = Object.values(jobStats).reduce((total, stats) => {
+                        return total + stats.recent_jobs
+                          .filter(job => job.provider === provider)
+                          .reduce((sum, job) => sum + job.characters, 0)
+                      }, 0)
+                      
+                      return (
+                        <div key={provider} className="p-4 bg-gray-50 rounded-lg">
+                          <h4 className="font-medium text-gray-900 capitalize">{provider}</h4>
+                          <p className="text-sm text-gray-600">Jobs: {providerJobs}</p>
+                          <p className="text-sm text-gray-600">Characters: {providerChars.toLocaleString()}</p>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Recent Activity */}
+                <div className="bg-white p-6 rounded-lg border border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
+                  <div className="space-y-3">
+                    {Object.entries(jobStats)
+                      .filter(([_, stats]) => stats.recent_jobs.length > 0)
+                      .slice(0, 10)
+                      .map(([userId, stats]) => {
+                        const user = users.find(u => u.user_id === userId)
+                        const recentJob = stats.recent_jobs[0]
+                        return (
+                          <div key={userId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                                <Users className="h-4 w-4 text-indigo-600" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{user?.email}</p>
+                                <p className="text-xs text-gray-500">
+                                  Used {recentJob.provider} • {recentJob.characters} chars
+                                </p>
+                              </div>
+                            </div>
+                            <span className="text-xs text-gray-400">
+                              {new Date(recentJob.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                        )
+                      })}
+                  </div>
                 </div>
               </div>
             )}
@@ -847,16 +1242,6 @@ export default function AdminPage() {
                         value={newUser.password}
                         onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
                         placeholder="Password"
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                      <input
-                        type="text"
-                        value={newUser.full_name}
-                        onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
-                        placeholder="e.g., John Doe"
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       />
                     </div>

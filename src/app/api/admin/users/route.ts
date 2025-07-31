@@ -42,7 +42,6 @@ export async function GET(request: NextRequest) {
       id: user.id, // This is the UUID from auth.users
       user_id: user.id, // Keep for compatibility
       email: user.email,
-      full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
       is_admin: false, // We'll need to check profiles table for admin status
       created_at: user.created_at
     }))
@@ -106,7 +105,7 @@ export async function POST(request: NextRequest) {
       password: userData.password,
       email_confirm: true, // Auto-confirm email
       user_metadata: {
-        full_name: userData.full_name || userData.email
+        // No longer collecting full_name
       }
     })
 
@@ -123,8 +122,7 @@ export async function POST(request: NextRequest) {
       const { error: profileError } = await serviceSupabase
         .from('profiles')
         .update({ 
-          is_admin: userData.is_admin,
-          full_name: userData.full_name || userData.email
+          is_admin: userData.is_admin
         })
         .eq('user_id', authData.user.id)
 
@@ -150,7 +148,6 @@ export async function POST(request: NextRequest) {
       user: profile || {
         user_id: authData.user.id,
         email: authData.user.email,
-        full_name: userData.full_name || userData.email,
         is_admin: userData.is_admin || false,
         created_at: authData.user.created_at
       }

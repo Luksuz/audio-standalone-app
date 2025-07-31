@@ -514,22 +514,6 @@ export default function AdminPage() {
                   </button>
                 </div>
 
-                {/* Sync Actions */}
-                <div className="flex flex-wrap gap-2 mb-6 p-4 bg-gray-50 rounded-lg">
-                  <span className="text-sm font-medium text-gray-700 mr-2">Quick Actions:</span>
-                  {providers.filter(p => p.is_active).map(provider => (
-                    <button
-                      key={provider.id}
-                      onClick={() => handleSyncVoices(provider.id)}
-                      disabled={loading}
-                      className="flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors disabled:opacity-50 text-sm"
-                    >
-                      <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
-                      Sync {provider.display_name}
-                    </button>
-                  ))}
-                </div>
-
                 {/* Voices Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredVoices.map((voice) => (
@@ -665,9 +649,6 @@ export default function AdminPage() {
                       <thead className="bg-gray-50">
                         <tr>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            User ID
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Email
                           </th>
                           <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -680,7 +661,7 @@ export default function AdminPage() {
                             Created At
                           </th>
                           <th scope="col" className="relative px-6 py-3">
-                            <span className="sr-only">Edit</span>
+                            <span className="sr-only">Actions</span>
                           </th>
                         </tr>
                       </thead>
@@ -688,13 +669,10 @@ export default function AdminPage() {
                         {users.map((user) => (
                           <tr key={user.id}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {user.user_id}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               {user.email}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {user.full_name}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {user.full_name || 'N/A'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
                               <button

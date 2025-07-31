@@ -25,38 +25,60 @@ async function checkAdminAccess() {
   return { user, supabase, serviceSupabase }
 }
 
-// GET /api/admin/users - List all users with profiles
+// GET /api/admin/users - List all users from auth.users
 export async function GET(request: NextRequest) {
   try {
     const { serviceSupabase } = await checkAdminAccess()
 
-    // Get all profiles with user data using service role client
-    const { data: profiles, error } = await serviceSupabase
-      .from('profiles')
-      .select(`
-        id,
-        user_id,
-        email,
-        full_name,
-        is_admin,
-        created_at
-      `)
-      .order('created_at', { ascending: false })
+    // Get all users from auth.users using service role client
+    const { data: { users }, error } = await serviceSupabase.auth.admin.listUsers()
 
     if (error) {
-      throw new Error(`Database error: ${error.message}`)
+      throw new Error(`Auth error: ${error.message}`)
     }
 
-    return NextResponse.json({
-      success: true,
-      users: profiles || []
-    })
+    // Transform the auth.users data to match our interface
+    const transformedUsers = users.map(user => ({
+      id: user.id, // This is the UUID from auth.users
+      user_id: user.id, // Keep for compatibility
+      email: user.email,
+      full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+      is_admin: false, // We'll need to check profiles table for admin status
+      created_at: user.created_at
+    }))
 
-  } catch (error: any) {
+    // Get admin status for each user from profiles table
+    const userIds = transformedUsers.map(u => u.id)
+    const { data: profiles } = await serviceSupabase
+      .from('profiles')
+      .select('user_id, is_admin')
+      .in('user_id', userIds)
+
+    // Merge admin status
+    const usersWithAdminStatus = transformedUsers.map(user => ({
+      ...user,
+      is_admin: profiles?.find(p => p.user_id === user.id)?.is_admin || false
+    }))
+
+    return NextResponse.json({
+      users: usersWithAdminStatus,
+      total: usersWithAdminStatus.length
+    })
+  } catch (error) {
     console.error('Error fetching users:', error)
+    
+    if (error instanceof Error) {
+      if (error.message === 'Unauthorized') {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      if (error.message === 'Admin access required') {
+        return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+      }
+    }
+    
     return NextResponse.json(
-      { success: false, error: error.message },
-      { status: error.message === 'Unauthorized' ? 401 : error.message === 'Admin access required' ? 403 : 500 }
+      { error: 'Internal server error' },
+      { status: 500 }
     )
   }
 }

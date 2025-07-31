@@ -14,9 +14,9 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, Suspense } from "react";
+import { useState } from "react";
 
-function LoginFormInner({
+export function LoginForm({
   className,
   ...props
 }: React.ComponentPropsWithoutRef<"div">) {
@@ -77,7 +77,7 @@ function LoginFormInner({
                 <div className="flex items-center">
                   <Label htmlFor="password">Password</Label>
                   <Link
-                    href="#"
+                    href="/auth/forgot-password"
                     className="ml-auto inline-block text-sm underline"
                   >
                     Forgot your password?
@@ -99,13 +99,10 @@ function LoginFormInner({
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Signing in..." : "Login"}
               </Button>
-              <Button variant="outline" className="w-full">
-                Login with Google
-              </Button>
             </div>
             <div className="mt-4 text-center text-sm">
               Don&apos;t have an account?{" "}
-              <Link href="#" className="underline">
+              <Link href="/auth/sign-up" className="underline">
                 Sign up
               </Link>
             </div>
@@ -113,27 +110,5 @@ function LoginFormInner({
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-export function LoginForm(props: React.ComponentPropsWithoutRef<"div">) {
-  return (
-    <Suspense fallback={
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>
-            Loading...
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center p-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-          </div>
-        </CardContent>
-      </Card>
-    }>
-      <LoginFormInner {...props} />
-    </Suspense>
   );
 }

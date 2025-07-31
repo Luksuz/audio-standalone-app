@@ -1,4 +1,4 @@
-import { LoginForm } from "@/components/login-form";
+import { LoginForm } from "../../../components/login-form";
 
 export default function Page() {
   return (
@@ -11,6 +11,14 @@ export default function Page() {
           <p className="text-gray-600">Sign in to your account</p>
         </div>
         <LoginForm />
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-600">
+            Don't have an account?{" "}
+            <a href="/auth/sign-up" className="text-purple-600 hover:text-purple-700 font-medium">
+              Sign up here
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );

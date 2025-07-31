@@ -1,4 +1,4 @@
-import { SignUpForm } from "@/components/sign-up-form";
+import { SignUpForm } from "../../../components/sign-up-form";
 
 export default function Page() {
   return (
@@ -11,6 +11,14 @@ export default function Page() {
           <p className="text-gray-600">Create your account to get started</p>
         </div>
         <SignUpForm />
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-600">
+            Already have an account?{" "}
+            <a href="/auth/login" className="text-purple-600 hover:text-purple-700 font-medium">
+              Sign in here
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );

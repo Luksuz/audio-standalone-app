@@ -12,8 +12,10 @@ INSERT INTO public.ai_voices (voice_id, name, provider) VALUES
 ('Fahco4VZzobUeiPqni1S', 'Archer - Conversational', 'elevenlabs');
 
 -- Fish Audio voices
-INSERT INTO public.ai_voices (voice_id, name, provider) VALUES
-('5c744a47d71', 'Jean', 'fishaudio');
+-- NOTE: Voice ID '5c744a47d71' (Jean) was removed due to "Reference audio not found" API error
+-- Replace with valid Fish Audio voice IDs when available
+-- INSERT INTO public.ai_voices (voice_id, name, provider) VALUES
+-- ('valid_fish_voice_id', 'Fish Audio Voice Name', 'fishaudio');
 
 -- Verify the insertions
 SELECT * FROM public.ai_voices ORDER BY created_at DESC; 

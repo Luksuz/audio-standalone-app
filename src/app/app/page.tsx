@@ -1410,9 +1410,9 @@ export default function AudioGenerator() {
                   whileHover={{ scale: isGenerating ? 1 : 1.02 }}
                   whileTap={{ scale: isGenerating ? 1 : 0.98 }}
                   onClick={handleGenerateAudio}
-                  disabled={isGenerating || !text.trim() || textChunks.length === 0}
+                  disabled={isGenerating || !text.trim() || textChunks.length === 0 || voicesLoading[selectedProvider] || selectedVoice === 'loading'}
                   className={`flex-1 py-4 px-6 rounded-xl font-semibold transition-all duration-200 ${
-                    isGenerating || !text.trim() || textChunks.length === 0
+                    isGenerating || !text.trim() || textChunks.length === 0 || voicesLoading[selectedProvider] || selectedVoice === 'loading'
                       ? 'bg-gray-400 cursor-not-allowed text-gray-700'
                       : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg hover:shadow-xl text-white'
                   }`}
@@ -1421,6 +1421,11 @@ export default function AudioGenerator() {
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="h-5 w-5 animate-spin" />
                       Processing Batches...
+                    </div>
+                  ) : voicesLoading[selectedProvider] ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      Loading Voices...
                     </div>
                   ) : (
                     <div className="flex items-center justify-center gap-2">

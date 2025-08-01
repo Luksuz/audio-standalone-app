@@ -68,8 +68,10 @@ const TTS_PROVIDERS: Record<string, TTSProvider> = {
       { id: "loading", name: "Loading voices..." }
     ],
     models: [
-      { id: "speech-02", name: "Speech-02" },
-      { id: "speech-02-hd", name: "Speech-02 HD" }
+      { id: "speech-02-turbo", name: "Speech-02 Turbo" },
+      { id: "speech-02-hd", name: "Speech-02 HD" },
+      { id: "speech-01-turbo", name: "Speech-01 Turbo" },
+      { id: "speech-01-hd", name: "Speech-01 HD" }
     ],
     fetchVoicesUrl: "/api/list-minimax-voices"
   }

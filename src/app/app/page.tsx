@@ -157,7 +157,7 @@ export default function AudioGenerator() {
   const fetchCustomVoices = async (provider: string) => {
     try {
       console.log(`🔄 Fetching custom voices for ${provider}...`)
-      const response = await fetch('/api/admin/voices')
+      const response = await fetch('/api/voices')
       
       if (!response.ok) {
         throw new Error(`Failed to fetch custom voices: ${response.statusText}`)

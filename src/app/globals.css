@@ -1,19 +1,28 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Custom slider styles */
+.slider::-webkit-slider-thumb {
+  @apply appearance-none h-4 w-4 bg-purple-600 rounded-full cursor-pointer shadow-lg;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+.slider::-webkit-slider-thumb:hover {
+  @apply bg-purple-700 shadow-xl;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.slider::-moz-range-thumb {
+  @apply h-4 w-4 bg-purple-600 rounded-full cursor-pointer border-0 shadow-lg;
+}
+
+.slider::-moz-range-thumb:hover {
+  @apply bg-purple-700 shadow-xl;
+}
+
+.slider::-webkit-slider-track {
+  @apply rounded-lg;
+}
+
+.slider::-moz-range-track {
+  @apply rounded-lg;
 }

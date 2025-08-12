@@ -130,6 +130,12 @@ export default function AudioGenerator() {
   const [voicesLoading, setVoicesLoading] = useState<Record<string, boolean>>({})
   const [voicesError, setVoicesError] = useState<Record<string, string>>({})
 
+  // MiniMax voice settings
+  const [minimaxEmotion, setMinimaxEmotion] = useState<string>('neutral')
+  const [minimaxSpeed, setMinimaxSpeed] = useState<number>(1)
+  const [minimaxVol, setMinimaxVol] = useState<number>(1)
+  const [minimaxPitch, setMinimaxPitch] = useState<number>(0)
+
   // Admin status check
   const { isAdmin } = useAdminStatus()
 
@@ -412,6 +418,10 @@ export default function AudioGenerator() {
         } else if (selectedProvider === 'minimax') {
           requestBody.minimaxVoiceId = selectedVoice;
           requestBody.minimaxModel = selectedModel;
+          requestBody.minimaxEmotion = minimaxEmotion;
+          requestBody.minimaxSpeed = minimaxSpeed;
+          requestBody.minimaxVol = minimaxVol;
+          requestBody.minimaxPitch = minimaxPitch;
         }
 
         const response = await fetch('/api/generate-audio-comprehensive', {
@@ -1315,6 +1325,98 @@ export default function AudioGenerator() {
                   </div>
                 )}
               </div>
+
+              {/* MiniMax Voice Settings */}
+              {selectedProvider === 'minimax' && (
+                <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-purple-200">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <Settings className="h-5 w-5 text-purple-600" />
+                    MiniMax Voice Settings
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Emotion Selection */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Emotion
+                      </label>
+                      <select
+                        value={minimaxEmotion}
+                        onChange={(e) => setMinimaxEmotion(e.target.value)}
+                        className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white text-gray-700"
+                      >
+                        <option value="neutral">😐 Neutral</option>
+                        <option value="happy">😊 Happy</option>
+                        <option value="sad">😢 Sad</option>
+                        <option value="angry">😠 Angry</option>
+                        <option value="fearful">😨 Fearful</option>
+                        <option value="disgusted">🤢 Disgusted</option>
+                        <option value="surprised">😲 Surprised</option>
+                      </select>
+                    </div>
+
+                    {/* Speed */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Speed: {minimaxSpeed}x
+                      </label>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="2"
+                        step="0.1"
+                        value={minimaxSpeed}
+                        onChange={(e) => setMinimaxSpeed(parseFloat(e.target.value))}
+                        className="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>0.5x</span>
+                        <span>2x</span>
+                      </div>
+                    </div>
+
+                    {/* Volume */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Volume: {Math.round(minimaxVol * 100)}%
+                      </label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="2"
+                        step="0.1"
+                        value={minimaxVol}
+                        onChange={(e) => setMinimaxVol(parseFloat(e.target.value))}
+                        className="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>0%</span>
+                        <span>200%</span>
+                      </div>
+                    </div>
+
+                    {/* Pitch */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Pitch: {minimaxPitch > 0 ? '+' : ''}{minimaxPitch}
+                      </label>
+                      <input
+                        type="range"
+                        min="-12"
+                        max="12"
+                        step="1"
+                        value={minimaxPitch}
+                        onChange={(e) => setMinimaxPitch(parseInt(e.target.value))}
+                        className="w-full h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>-12</span>
+                        <span>+12</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Batch Progress */}

@@ -13,7 +13,23 @@ const MINIMAX_GROUP_ID = process.env.MINIMAX_GROUP_ID;
 
 export async function POST(request: Request) {
   const requestBody = await request.json();
-  const { text, provider, voice, model, elevenLabsVoiceId, fishAudioVoiceId, fishAudioModel, minimaxVoiceId, minimaxModel, chunkIndex = 0, userId = "unknown_user" } = requestBody;
+  const { 
+    text, 
+    provider, 
+    voice, 
+    model, 
+    elevenLabsVoiceId, 
+    fishAudioVoiceId, 
+    fishAudioModel, 
+    minimaxVoiceId, 
+    minimaxModel,
+    minimaxEmotion,
+    minimaxSpeed,
+    minimaxVol,
+    minimaxPitch,
+    chunkIndex = 0, 
+    userId = "unknown_user" 
+  } = requestBody;
 
   console.log("📥 Received single chunk audio generation request");
   console.log(`🔍 Request details: provider=${provider}, voice=${voice}, chunkIndex=${chunkIndex}, text length=${text?.length || 0}`);
@@ -151,7 +167,16 @@ export async function POST(request: Request) {
 
       case "minimax":
         const minimaxTTSModel = minimaxModel || "speech-02-hd";
-        console.log(`🤖 [Chunk ${chunkIndex}] MiniMax: voice=${minimaxVoiceId}, model=${minimaxTTSModel}`);
+        const voiceSettings = {
+          voice_id: minimaxVoiceId,
+          speed: minimaxSpeed || 1,
+          vol: minimaxVol || 1,
+          pitch: minimaxPitch || 0
+        };
+        const emotion = minimaxEmotion || "neutral";
+        
+        console.log(`🤖 [Chunk ${chunkIndex}] MiniMax: voice=${minimaxVoiceId}, model=${minimaxTTSModel}, emotion=${emotion}, settings=${JSON.stringify(voiceSettings)}`);
+        
         const minimaxResponse = await fetch(`https://api.minimaxi.chat/v1/t2a_v2?GroupId=${MINIMAX_GROUP_ID}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${MINIMAX_API_KEY}` },
@@ -160,7 +185,8 @@ export async function POST(request: Request) {
             text: text, 
             stream: false, 
             subtitle_enable: false,
-            voice_setting: { voice_id: minimaxVoiceId, speed: 1, vol: 1, pitch: 0 },
+            voice_setting: voiceSettings,
+            emotion: emotion,
             audio_setting: { sample_rate: 32000, bitrate: 128000, format: "mp3", channel: 1 }
           })
         });
